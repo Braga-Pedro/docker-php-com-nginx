@@ -1,4 +1,4 @@
-version: "3.9"
+# version: "3.9"
 services:
   web:
     image: urnau/app1-php:prod-nginx-php-fpm8.2.3
@@ -10,6 +10,71 @@ services:
         PHP_VERSION: '8.2.4-fpm-bullseye'
     # volumes:
     #   - ./app:/var/www/app
+    # networks:
+    #   - my-network
     ports:
       - "80:80" #http
       - "443:443" #https
+    depends_on:
+      - soketi
+      - pgsql
+      - redis
+
+  soketi:
+    image: 'quay.io/soketi/soketi:latest-16-alpine'
+    environment:
+        SOKETI_DEBUG: '${SOKETI_DEBUG:-1}'
+        SOKETI_METRICS_SERVER_PORT: '9601'
+        SOKETI_DEFAULT_APP_ID: '${PUSHER_APP_ID:-app-id}'
+        SOKETI_DEFAULT_APP_KEY: '${PUSHER_APP_KEY:-app-key}'
+        SOKETI_DEFAULT_APP_SECRET: '${PUSHER_APP_SECRET:-app-secret}'
+    ports:
+        - '${PUSHER_PORT:-6001}:6001'
+        - '${PUSHER_METRICS_PORT:-9601}:9601'
+
+  pgsql:
+    image: 'postgres:17'
+    ports:
+        - '${FORWARD_DB_PORT:-5432}:5432'
+    environment:
+        PGPASSWORD: '${DB_PASSWORD:-secret}'
+        POSTGRES_DB: '${DB_DATABASE:-db_fluxos_digital}'
+        POSTGRES_USER: '${DB_USERNAME:-user_fluxos_digital}'
+        POSTGRES_PASSWORD: '${DB_PASSWORD:-secret_fluxos_digital}'
+    volumes:
+        - 'pgsql-volume:/var/lib/postgresql/data'
+        # - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
+    # networks:
+    #     - sail
+    healthcheck:
+        test:
+            - CMD
+            - pg_isready
+            - '-q'
+            - '-d'
+            - '${DB_DATABASE:-db_fluxos_digital}'
+            - '-U'
+            - '${DB_USERNAME:-user_fluxos_digital}'
+        retries: 3
+        timeout: 5s
+
+  redis:
+    image: 'redis:alpine'
+    ports:
+        - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+        - 'redis-volume:/data'
+    # networks:
+    #     - my-network
+    healthcheck:
+        test:
+            - CMD
+            - redis-cli
+            - ping
+        retries: 3
+        timeout: 5s
+volumes:
+    pgsql-volume:
+      driver: local
+    redis-volume:
+      driver: local      
