@@ -1,0 +1,69 @@
+ARG PHP_VERSION
+FROM php:${PHP_VERSION}
+
+ARG APP_DIR=/var/www/app 
+
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+    apt-utils \ 
+    supervisor
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    zlib1g-dev \
+    libzip-dev \
+    libcurl4-openssl-dev \
+    libsqlite3-dev \
+    libsodium-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libonig-dev
+
+RUN docker-php-ext-install pdo pdo_pgsql pgsql
+RUN docker-php-ext-install curl zip gd fileinfo mbstring exif
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+COPY ./docker/supervisord/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY ./docker/php/extra-php.ini "$PHP_INI_DIR/99_extra.ini"
+COPY ./docker/php/extra-php-fpm.conf /etc/php8/php-fpm.d/www.conf
+
+# installing project
+WORKDIR $APP_DIR
+RUN cd $APP_DIR
+RUN chown www-data:www-data $APP_DIR
+
+COPY --chown=www-data:www-data ./app .
+# RUN rm -rf vendor
+RUN composer install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+
+# configure nginx
+RUN apt-get install nginx -y
+RUN rm -rf /etc/nginx/sites-enabled/* && rm -rf /etc/nginx/sites-available/*
+COPY ./docker/nginx/sites.conf /etc/nginx/sites-enabled/default.conf
+COPY ./docker/nginx/error.html /var/www/html/error.html
+
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# NPM and YARN install
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    netcat \
+    nano \
+    git \
+    gnupg 
+
+RUN mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | tee /etc/apt/keyrings/nodesource.asc > /dev/null
+
+RUN curl -sL https://deb.nodesource.com/setup_20.x | bash -
+
+RUN apt-get update && apt-get install -y nodejs
+
+RUN npm install -g yarn 
+
+COPY ./docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

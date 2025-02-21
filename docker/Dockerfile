@@ -57,5 +57,10 @@ COPY ./docker/php/extra-php.ini "$PHP_INI_DIR/99_extra.ini"
 COPY ./docker/php/extra-php-fpm.conf /etc/php8/php-fpm.d/www.conf
 
 # subir o frontend para receber as requisições
+RUN rm public/mockServiceWorker.js
+RUN npm install --peer-deps --force && npm run build
+
+RUN chown -R www-data:www-data "$APP_DIR/public"
+RUN chmod -R 755 "$APP_DIR/public"
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
