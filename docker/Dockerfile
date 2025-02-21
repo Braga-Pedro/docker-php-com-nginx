@@ -56,8 +56,9 @@ COPY ./docker/supervisord/supervisord.conf /etc/supervisor/conf.d/supervisord.co
 COPY ./docker/php/extra-php.ini "$PHP_INI_DIR/99_extra.ini"
 COPY ./docker/php/extra-php-fpm.conf /etc/php8/php-fpm.d/www.conf
 
+# remove mock service by production mode
+RUN rm public/mockServiceWorker.js 
 # subir o frontend para receber as requisições
-RUN rm public/mockServiceWorker.js
 RUN npm install --peer-deps --force && npm run build
 
 RUN chown -R www-data:www-data "$APP_DIR/public"
