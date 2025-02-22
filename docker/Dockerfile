@@ -1,5 +1,6 @@
 ARG PHP_VERSION
-FROM php:${PHP_VERSION}
+# FROM php:${PHP_VERSION}
+FROM php:8.2.4-fpm-bullseye
 
 ARG APP_DIR=/var/www/app 
 ARG REDIS_LIB_VERSION=5.3.7
@@ -66,6 +67,7 @@ RUN chown -R www-data:www-data "$APP_DIR/public"
 RUN chmod -R 755 "$APP_DIR/public"
 
 # php artisan config:clear; php artisan cache:clear; php artisan config:cache
+RUN composer dump-autoload
 
 # remove mock service by production mode
 RUN [ -f public/mockServiceWorker.js ] && rm public/mockServiceWorker.js || echo "mockServiceWorker não encontrado, ignorando..."
